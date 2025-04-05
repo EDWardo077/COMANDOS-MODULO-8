@@ -1,0 +1,406 @@
+Comandos usados practica 1
+
+==================================================================================
+
+Prerrequisitos:
+
+Un servidor con Debian 12 instalado.
+Acceso a internet en el servidor.
+Un usuario con privilegios sudo.
+Un navegador web (puede ser en el mismo servidor si tienes entorno gráfico, o en otra máquina de tu red).
+Paso 1: Actualizar el sistema
+
+Primero, asegúrate de que tu sistema esté actualizado. Abre una terminal en tu servidor Debian y ejecuta:
+
+sudo apt update
+sudo apt upgrade -y
+Paso 2: Instalar dependencias necesarias
+
+Docker requiere algunos paquetes para funcionar correctamente y para añadir su repositorio oficial.
+
+sudo apt install apt-transport-https ca-certificates curl gnupg -y
+Paso 3: Añadir la clave GPG oficial de Docker
+
+Para asegurarte de que descargas software legítimo, añade la clave GPG de Docker.
+
+# Crear directorio para llaves si no existe
+sudo install -m 0755 -d /etc/apt/keyrings
+
+# Descargar la llave GPG de Docker y guardarla
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+# Ajustar permisos de la llave
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+Paso 4: Configurar el repositorio de Docker
+
+Ahora, añade el repositorio oficial de Docker a las fuentes de APT.
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+$(dpkg --print-architecture) obtiene la arquitectura de tu sistema (ej. amd64).
+$(lsb_release -cs) obtiene el nombre clave de tu versión de Debian (bookworm para Debian 12).
+Paso 5: Instalar Docker Engine
+
+Actualiza la lista de paquetes nuevamente para incluir los paquetes del nuevo repositorio de Docker y luego instala Docker.
+
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+Paso 6: Verificar la instalación de Docker
+
+Comprueba que Docker se ha instalado correctamente y el servicio está corriendo.
+
+sudo systemctl status docker
+Deberías ver que el servicio está active (running). Presiona q para salir.
+
+Puedes probar ejecutando una imagen de prueba:
+
+sudo docker run hello-world
+Si ves un mensaje de "Hello from Docker!", la instalación fue exitosa.
+
+(Opcional pero recomendado) Paso 6.1: Permitir a tu usuario ejecutar Docker sin sudo
+
+Para evitar escribir sudo cada vez que uses Docker, añade tu usuario al grupo docker.
+
+sudo usermod -aG docker $USER
+Importante: Necesitas cerrar sesión y volver a iniciar sesión, o ejecutar el comando newgrp docker en tu terminal actual para que este cambio tenga efecto. Después de esto, deberías poder ejecutar comandos docker sin sudo. Verifica con:
+
+docker run hello-world
+Paso 7: Descargar la imagen de NGINX
+
+Ahora, descarga la imagen oficial de NGINX desde Docker Hub.
+
+docker pull nginx
+Nota: Si omitiste el paso 6.1, usa sudo docker pull nginx.
+
+Puedes verificar que la imagen se ha descargado con:
+
+docker images
+Deberías ver nginx en la lista.
+
+Paso 8: Crear el directorio para el volumen persistente en el Host
+
+Necesitamos crear el directorio en tu servidor (el host) que se montará dentro del contenedor. Usaremos /home/TU_USUARIO/website para evitar problemas de permisos en /home directamente. Reemplaza TU_USUARIO con tu nombre de usuario real, o simplemente usa ~ que es un atajo a tu directorio home.
+
+mkdir ~/website
+Verifica que se creó:
+
+ls ~
+Paso 9: Crear y ejecutar el contenedor NGINX
+
+Ahora, crea el contenedor usando la imagen nginx, mapeando el puerto y montando el volumen.
+
+docker run -d --name mi-nginx-web -p 8888:80 -v ~/website:/usr/share/nginx/html nginx
+Desglose del comando:
+
+docker run: Comando para crear y ejecutar un contenedor.
+-d: Ejecuta el contenedor en segundo plano (detached mode).
+--name mi-nginx-web: Asigna un nombre al contenedor para identificarlo fácilmente.
+-p 8888:80: Redirecciona (mapea) el puerto 8888 de tu servidor (host) al puerto 80 dentro del contenedor (que es el puerto por defecto de NGINX).
+-v ~/website:/usr/share/nginx/html: Monta el directorio ~/website de tu servidor host en la ruta /usr/share/nginx/html dentro del contenedor. Esta es la ruta donde NGINX busca los archivos web por defecto. Los cambios en ~/website se reflejarán instantáneamente dentro del contenedor.
+nginx: El nombre de la imagen a utilizar para crear el contenedor.
+Verifica que el contenedor está corriendo:
+
+docker ps
+Deberías ver el contenedor mi-nginx-web en la lista, mostrando el mapeo de puertos 0.0.0.0:8888->80/tcp.
+
+Paso 10: Crear la página HTML sencilla
+
+Crea el archivo index.html dentro del directorio que montaste como volumen (~/website). Usa un editor de texto como nano.
+
+nano ~/website/index.html
+Pega el siguiente contenido dentro del editor. Recuerda reemplazar [Tu Nombre] y [Tu Matrícula] con tus datos reales.
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Práctica Docker Nginx</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        h1 { color: #333; }
+        p { color: #555; }
+    </style>
+</head>
+<body>
+    <h1>¡Bienvenido a mi Sitio Web con Docker y Nginx!</h1>
+    <p><strong>Nombre:</strong> [Tu Nombre]</p>
+    <p><strong>Matrícula:</strong> [Tu Matrícula]</p>
+</body>
+</html>
+Guarda el archivo y cierra nano:
+
+Presiona Ctrl + O (Guardar).
+Presiona Enter (Confirmar nombre de archivo).
+Presiona Ctrl + X (Salir).
+Como el directorio ~/website está montado como volumen en /usr/share/nginx/html dentro del contenedor, NGINX ahora servirá este archivo index.html.
+
+Paso 11: Acceder a la página web desde el navegador
+
+Abre tu navegador web preferido y ve a la siguiente dirección:
+
+http://127.0.0.1:8888
+
+O también puedes usar:
+
+http://localhost:8888
+
+Si estás accediendo desde otra máquina en la misma red: Reemplaza 127.0.0.1 o localhost con la dirección IP de tu servidor Debian 12. Puedes encontrar la IP de tu servidor con el comando ip a en la terminal del servidor. Por ejemplo: http://192.168.1.100:8888.
+Importante: Si tienes un firewall activado en tu servidor Debian (como ufw), asegúrate de permitir el tráfico entrante en el puerto 8888: sudo ufw allow 8888/tcp.
+Deberías ver la página HTML que creaste, mostrando tu nombre y matrícula.
+
+¡Felicidades! Has completado la práctica. Has instalado Docker, descargado una imagen de Nginx, creado un contenedor con mapeo de puertos y volumen persistente, y has servido una página HTML personalizada.
+
+Para detener y eliminar el contenedor (si lo necesitas en el futuro):
+
+# Detener el contenedor
+docker stop mi-nginx-web
+
+# Eliminar el contenedor (no elimina la imagen ni el volumen en el host)
+docker rm mi-nginx-web
+
+
+==================================================================================
+Comandos usados practica 2
+==================================================================================
+Prerrequisitos:
+
+Docker ya está instalado y funcionando (como en la práctica anterior).
+El contenedor Nginx mi-nginx-web de la práctica anterior debe estar ejecutándose (puedes verificar con docker ps).
+Paso 1: Crear un volumen para los datos persistentes de Portainer
+
+Portainer necesita almacenar su configuración. Es una buena práctica usar un volumen de Docker para esto, asegurando que los datos persistan incluso si el contenedor se elimina y se vuelve a crear.
+
+docker volume create portainer_data
+Verifica que el volumen se creó:
+
+docker volume ls
+Deberías ver portainer_data en la lista.
+
+Paso 2: Descargar la imagen de Portainer Community Edition (CE)
+
+Descarga la última imagen oficial de Portainer CE desde Docker Hub.
+
+docker pull portainer/portainer-ce:latest
+Nota: Si configuraste tu usuario para ejecutar docker sin sudo, omite sudo. De lo contrario, usa sudo docker pull ...
+
+Verifica que la imagen se ha descargado:
+
+docker images
+Deberías ver portainer/portainer-ce en la lista.
+
+Paso 3: Crear y ejecutar el contenedor de Portainer
+
+Ahora crearemos el contenedor. Usaremos el volumen que creamos y montaremos el socket de Docker para que Portainer pueda administrar el Docker Engine local.
+
+docker run -d -p 9000:9000 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest
+Desglose del comando:
+
+docker run: Comando para crear y ejecutar un contenedor.
+-d: Ejecuta el contenedor en segundo plano (detached).
+-p 9000:9000: Mapea el puerto 9000 del host al puerto 9000 dentro del contenedor. Este es el puerto por defecto para la interfaz web de Portainer (versiones anteriores usaban 9000 para HTTP, las más nuevas prefieren 9443 para HTTPS, pero el comando standard sigue exponiendo 9000, y tu instrucción pide acceso por 9000).
+--name portainer: Asigna un nombre descriptivo al contenedor.
+--restart=always: Configura el contenedor para que se reinicie automáticamente si se detiene o si el servidor se reinicia.
+-v /var/run/docker.sock:/var/run/docker.sock: (Importante) Monta el socket de Unix de Docker del host dentro del contenedor. Esto permite a Portainer comunicarse y administrar el daemon de Docker local. Nota de seguridad: Ten en cuenta que dar acceso al socket de Docker a un contenedor es equivalente a dar privilegios de root en el host a ese contenedor. Solo haz esto con imágenes de confianza como la oficial de Portainer.
+-v portainer_data:/data: Monta el volumen portainer_data que creamos en el paso 1 en la ruta /data dentro del contenedor, donde Portainer almacena su base de datos y configuración.
+portainer/portainer-ce:latest: La imagen que se utilizará para crear el contenedor.
+Verifica que el contenedor Portainer está corriendo:
+
+docker ps
+Deberías ver el contenedor portainer en la lista, mostrando el mapeo de puertos 0.0.0.0:9000->9000/tcp.
+
+Paso 4: Acceder a la interfaz de administración de Portainer y configuración inicial
+
+Abre tu navegador web y ve a la dirección:
+http://127.0.0.1:9000
+O, si accedes desde otra máquina en la red:
+http://<IP_DEL_SERVIDOR_DEBIAN>:9000
+(Recuerda reemplazar <IP_DEL_SERVIDOR_DEBIAN> con la IP real. Asegúrate de que el firewall, si está activo, permita el puerto 9000: sudo ufw allow 9000/tcp)
+
+La primera vez que accedas, Portainer te pedirá que crees una cuenta de administrador.
+
+Introduce un nombre de usuario (por ejemplo, admin).
+Introduce y confirma una contraseña segura.
+Haz clic en el botón "Create user".
+Paso 5: Vincular Portainer con el Docker Engine local
+
+Después de crear el usuario, serás llevado a la pantalla "Environment Setup" o "Connect Portainer to your environments".
+Deberías ver una opción para administrar el entorno Docker local donde Portainer está corriendo. Generalmente se llama "Docker - Manage the local Docker environment" o similar.
+Selecciona esta opción (normalmente es la primera y viene preseleccionada o con un botón "Get Started").
+Haz clic en el botón "Connect". Portainer usará el socket de Docker montado (/var/run/docker.sock) para conectarse automáticamente.
+¡Listo! Ahora deberías estar en el dashboard principal de Portainer, viendo información sobre tu entorno Docker local (cuántos contenedores, imágenes, volúmenes, etc.).
+
+Paso 6: Detener el contenedor NGINX usando Portainer
+
+En el menú de la izquierda de Portainer, haz clic en "Containers".
+Verás una lista de los contenedores que se están ejecutando en tu host. Busca el contenedor llamado mi-nginx-web (el que creaste en la práctica anterior).
+Marca la casilla de verificación a la izquierda del nombre mi-nginx-web.
+En la barra de acciones que aparece arriba de la lista, haz clic en el botón "Stop".
+Portainer detendrá el contenedor. El estado del contenedor mi-nginx-web cambiará de running a stopped.
+Paso 7: Mostrar el resultado en el navegador web
+
+Abre una nueva pestaña en tu navegador (o usa la misma donde accediste a Nginx antes).
+
+Intenta acceder nuevamente a la dirección donde estaba tu página Nginx:
+http://127.0.0.1:8888
+o
+http://<IP_DEL_SERVIDOR_DEBIAN>:8888
+
+Resultado esperado: El navegador debería mostrar un error indicando que no se puede acceder al sitio (por ejemplo, "This site can’t be reached", "No se puede acceder a este sitio web", "Conexión rechazada", etc.). Esto confirma que el contenedor Nginx que servía la página en el puerto 8888 ya no está en ejecución porque lo detuviste a través de Portainer.
+
+
+==================================================================================
+Comandos usados practica 3
+==================================================================================
+Prerrequisitos:
+
+Docker y Docker Compose instalados y funcionando en tu Debian 12. (Docker Engine ya lo tienes, verificaremos Docker Compose).
+Acceso a la terminal con privilegios sudo (si no añadiste tu usuario al grupo docker).
+Un navegador web.
+Paso 1: Verificar/Instalar Docker Compose
+
+Desde las prácticas anteriores, ya deberías tener instalado el plugin docker-compose-plugin junto con Docker Engine. Vamos a verificarlo:
+
+docker compose version
+Deberías ver una salida como Docker Compose version v2.x.x.
+
+Si por alguna razón no lo tienes instalado (quizás omitiste el paquete docker-compose-plugin durante la instalación de Docker Engine), puedes instalarlo ahora:
+
+sudo apt update
+sudo apt install docker-compose-plugin -y
+# Verifica de nuevo
+docker compose version
+Paso 2: Crear un directorio para el proyecto
+
+Es una buena práctica mantener los archivos de configuración de cada proyecto de Docker Compose en su propio directorio.
+
+# Crea un directorio, por ejemplo, en tu home
+mkdir ~/wordpress-docker
+# Entra en el directorio creado
+cd ~/wordpress-docker
+Paso 3: Crear el archivo docker-compose.yml
+
+Dentro del directorio ~/wordpress-docker, crea el archivo docker-compose.yml usando un editor de texto como nano.
+
+nano docker-compose.yml
+Pega el siguiente contenido en el editor. Lee los comentarios y ajusta las contraseñas:
+
+version: '3.8' # Especifica la versión de la sintaxis de Docker Compose
+
+services:
+  # Servicio para la Base de Datos (MariaDB en este ejemplo)
+  db:
+    image: mariadb:latest # Usa la imagen oficial más reciente de MariaDB
+    container_name: wordpress_db # Nombre opcional para el contenedor de la BD
+    restart: unless-stopped # Reinicia el contenedor a menos que se detenga manualmente
+    environment:
+      # --- ¡IMPORTANTE! Cambia estas contraseñas por unas seguras ---
+      MYSQL_ROOT_PASSWORD: TU_CONTRASEÑA_ROOT_AQUI # Contraseña para el usuario root de la BD
+      MYSQL_DATABASE: wordpress_db # Nombre de la base de datos que usará WordPress
+      MYSQL_USER: wordpress_user # Nombre de usuario que usará WordPress para conectarse
+      MYSQL_PASSWORD: TU_CONTRASEÑA_WP_AQUI # Contraseña para el usuario de WordPress
+      # -------------------------------------------------------------
+    volumes:
+      - db_data:/var/lib/mysql # Monta un volumen persistente para los datos de la BD
+    networks:
+      - wordpress_network # Conecta este servicio a la red definida abajo
+
+  # Servicio para la aplicación WordPress
+  wordpress:
+    image: wordpress:latest # Usa la imagen oficial más reciente de WordPress
+    container_name: wordpress_app # Nombre opcional para el contenedor de WP
+    depends_on:
+      - db # Indica que este servicio depende del servicio 'db' (esperará a que se inicie)
+    restart: unless-stopped # Reinicia el contenedor a menos que se detenga manualmente
+    ports:
+      - "8000:80" # Mapea el puerto 8000 del host al puerto 80 del contenedor WP
+                  # Puedes cambiar 8000 si ese puerto ya está en uso en tu host
+    environment:
+      WORDPRESS_DB_HOST: db:3306 # Host de la BD: usa el nombre del servicio 'db' y el puerto por defecto de MySQL/MariaDB
+      WORDPRESS_DB_USER: wordpress_user # Debe coincidir con MYSQL_USER en el servicio 'db'
+      WORDPRESS_DB_PASSWORD: TU_CONTRASEÑA_WP_AQUI # Debe coincidir con MYSQL_PASSWORD en el servicio 'db'
+      WORDPRESS_DB_NAME: wordpress_db # Debe coincidir con MYSQL_DATABASE en el servicio 'db'
+      # WORDPRESS_TABLE_PREFIX: wp_ # Prefijo opcional para las tablas de WP (puedes descomentar y cambiar si quieres)
+    volumes:
+      - wordpress_files:/var/www/html # Monta un volumen persistente para los archivos de WP (temas, plugins, uploads)
+    networks:
+      - wordpress_network # Conecta este servicio a la red definida abajo
+
+# Definición de Volúmenes (para persistencia de datos)
+volumes:
+  db_data: # Volumen para almacenar los datos de la base de datos
+  wordpress_files: # Volumen para almacenar los archivos de WordPress
+
+# Definición de Redes (para comunicación entre contenedores)
+networks:
+  wordpress_network: # Define una red personalizada para los servicios
+    driver: bridge # Usa el driver de red 'bridge' por defecto
+
+
+¡Muy Importante!
+
+Reemplaza TU_CONTRASEÑA_ROOT_AQUI con una contraseña segura para el usuario root de la base de datos.
+Reemplaza TU_CONTRASEÑA_WP_AQUI (en ambos lugares donde aparece: en el servicio db y en el servicio wordpress) con una contraseña segura para que WordPress se conecte a la base de datos.
+Asegúrate de que MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD en el servicio db coincidan exactamente con WORDPRESS_DB_NAME, WORDPRESS_DB_USER, WORDPRESS_DB_PASSWORD en el servicio wordpress.
+Hemos usado el puerto 8000 en el host (ports: - "8000:80"). Si el puerto 8000 ya está ocupado en tu servidor Debian, cámbialo por otro (ej. 8081:80).
+Guarda el archivo y cierra nano:
+
+Presiona Ctrl + O (Guardar).
+Presiona Enter (Confirmar nombre de archivo).
+Presiona Ctrl + X (Salir).
+Paso 4: Realizar el despliegue con Docker Compose
+
+Asegúrate de estar en el directorio ~/wordpress-docker (donde guardaste el archivo docker-compose.yml). Luego, ejecuta el siguiente comando:
+
+docker compose up -d
+Desglose del comando:
+
+docker compose: Invoca la herramienta Docker Compose.
+up: Lee el archivo docker-compose.yml, crea/actualiza y ejecuta los servicios definidos.
+-d: (Detached mode) Ejecuta los contenedores en segundo plano para que la terminal quede libre.
+Docker Compose descargará las imágenes de mariadb y wordpress (si no las tienes localmente), creará la red y los volúmenes, y luego iniciará los contenedores wordpress_db y wordpress_app.
+
+Puedes verificar que los contenedores están corriendo con:
+
+docker compose ps
+# O también puedes usar el comando estándar de Docker
+docker ps
+Deberías ver los dos contenedores (wordpress_db y wordpress_app) en estado running o Up.
+
+Paso 5: Configurar WordPress a través del navegador
+
+Abre tu navegador web.
+
+Ve a la dirección de tu servidor Debian usando el puerto que mapeaste en el archivo docker-compose.yml (en nuestro ejemplo, el puerto 8000).
+
+Si estás en el mismo servidor: http://127.0.0.1:8000 o http://localhost:8000
+Si estás en otra máquina de la red: http://<IP_DEL_SERVIDOR_DEBIAN>:8000 (reemplaza <IP_DEL_SERVIDOR_DEBIAN> con la IP real de tu servidor).
+(Recuerda: si tienes ufw activado, permite el puerto: sudo ufw allow 8000/tcp)
+Serás recibido por el asistente de instalación de WordPress.
+
+Selecciona el idioma que prefieras y haz clic en "Continuar".
+Información necesaria: Verás una pantalla que te informa sobre los detalles de la base de datos. Ya los hemos configurado en docker-compose.yml, así que WordPress debería conectarse automáticamente. Si te pide los datos de la BD (lo cual no debería pasar si todo está bien), asegúrate de que los valores en docker-compose.yml sean correctos y los contenedores estén corriendo. Haz clic en "¡Vamos a ello!" si aparece esa pantalla (normalmente no lo hace con esta configuración).
+¡Bienvenido! / Configuración: Ahora configurarás tu sitio:
+Título del sitio: El nombre que quieres para tu blog/sitio web.
+Nombre de usuario: El nombre de usuario que usarás para administrar WordPress (¡no uses "admin"!).
+Contraseña: Una contraseña fuerte para tu usuario administrador (WordPress te sugerirá una). Guárdala bien.
+Tu correo electrónico: Una dirección de correo válida para notificaciones y recuperación de contraseña.
+Visibilidad para los motores de búsqueda: Puedes marcar esta casilla si estás desarrollando y no quieres que Google indexe el sitio todavía.
+Haz clic en el botón "Instalar WordPress".
+¡Lo lograste! Verás un mensaje de éxito. Haz clic en el botón "Acceder" (o "Login").
+
+Introduce el nombre de usuario y la contraseña que acabas de crear en el paso anterior y haz clic en "Acceder".
+
+¡Ya estás dentro del panel de administración de WordPress! Tu sitio WordPress está funcionando correctamente, desplegado usando Docker Compose con contenedores separados para la aplicación y la base de datos, y con datos persistentes gracias a los volúmenes. Puedes empezar a crear contenido, instalar temas y plugins.
+
+Para detener y eliminar los contenedores (si lo necesitas):
+
+Asegúrate de estar en el directorio ~/wordpress-docker y ejecuta:
+
+docker compose down
+Este comando detiene y elimina los contenedores definidos en el docker-compose.yml.
+
+Si también quieres eliminar los volúmenes (¡esto borrará tu base de datos y archivos de WordPress!), usa:
+
+docker compose down -v
