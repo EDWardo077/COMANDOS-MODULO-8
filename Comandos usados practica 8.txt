@@ -1,4 +1,4 @@
-Comandos usados practica 1
+Comandos usados practica 1 - Instalacion y configuracion de Docker
 
 ==================================================================================
 
@@ -162,7 +162,7 @@ docker rm mi-nginx-web
 
 
 ==================================================================================
-Comandos usados practica 2
+Comandos usados practica 2 - Instalacion de Portainer
 ==================================================================================
 Prerrequisitos:
 
@@ -182,12 +182,12 @@ Paso 2: Descargar la imagen de Portainer Community Edition (CE)
 
 Descarga la última imagen oficial de Portainer CE desde Docker Hub.
 
-docker pull portainer/portainer-ce:latest
+sudo docker pull portainer/portainer-ce:latest
 Nota: Si configuraste tu usuario para ejecutar docker sin sudo, omite sudo. De lo contrario, usa sudo docker pull ...
 
 Verifica que la imagen se ha descargado:
 
-docker images
+sudo docker images
 Deberías ver portainer/portainer-ce en la lista.
 
 Paso 3: Crear y ejecutar el contenedor de Portainer
@@ -251,7 +251,7 @@ Resultado esperado: El navegador debería mostrar un error indicando que no se p
 
 
 ==================================================================================
-Comandos usados practica 3
+Comandos usados practica 3 - IDespliegue de contenedor de Wordpress utilizando Docker-Compose
 ==================================================================================
 Prerrequisitos:
 
@@ -271,6 +271,7 @@ sudo apt update
 sudo apt install docker-compose-plugin -y
 # Verifica de nuevo
 docker compose version
+
 Paso 2: Crear un directorio para el proyecto
 
 Es una buena práctica mantener los archivos de configuración de cada proyecto de Docker Compose en su propio directorio.
@@ -284,6 +285,7 @@ Paso 3: Crear el archivo docker-compose.yml
 Dentro del directorio ~/wordpress-docker, crea el archivo docker-compose.yml usando un editor de texto como nano.
 
 nano docker-compose.yml
+
 Pega el siguiente contenido en el editor. Lee los comentarios y ajusta las contraseñas:
 
 version: '3.8' # Especifica la versión de la sintaxis de Docker Compose
@@ -353,7 +355,8 @@ Paso 4: Realizar el despliegue con Docker Compose
 
 Asegúrate de estar en el directorio ~/wordpress-docker (donde guardaste el archivo docker-compose.yml). Luego, ejecuta el siguiente comando:
 
-docker compose up -d
+sudo docker compose up -d
+
 Desglose del comando:
 
 docker compose: Invoca la herramienta Docker Compose.
@@ -363,7 +366,8 @@ Docker Compose descargará las imágenes de mariadb y wordpress (si no las tiene
 
 Puedes verificar que los contenedores están corriendo con:
 
-docker compose ps
+sudo docker compose ps
+
 # O también puedes usar el comando estándar de Docker
 docker ps
 Deberías ver los dos contenedores (wordpress_db y wordpress_app) en estado running o Up.
